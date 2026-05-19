@@ -3,6 +3,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDRRMO Peer Evaluation Form</title>
+    <!-- Include EmailJS SDK for automated email sending -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            // Replace "YOUR_PUBLIC_KEY" with your actual EmailJS Public Key
+            emailjs.init("YOUR_PUBLIC_KEY");
+        })();
+    </script>
     <style>
         :root {
             --primary-color: #0284c7;
@@ -96,7 +104,6 @@
             text-transform: uppercase;
         }
 
-        /* Desktop Table View Styles */
         .matrix-table {
             width: 100%;
             border-collapse: collapse;
@@ -131,7 +138,6 @@
             accent-color: var(--primary-color);
         }
 
-        /* Mobile Layout Card Elements */
         .mobile-question-card {
             display: none;
         }
@@ -163,7 +169,9 @@
         }
 
         button:hover { background-color: var(--primary-dark); }
+        button:disabled { background-color: #cbd5e1; cursor: not-allowed; box-shadow: none; }
 
+        /* Responsive UI Optimization */
         @media (max-width: 650px) {
             .meta-grid { grid-template-columns: 1fr; }
             .matrix-table { display: none; }
@@ -200,6 +208,7 @@
                 font-size: 0.85rem;
                 font-weight: 600;
                 color: var(--text-muted);
+                cursor: pointer;
             }
         }
     </style>
@@ -214,7 +223,6 @@
 
     <form id="evaluationForm">
         
-        <!-- Target Recipient Email Configuration Field -->
         <div class="form-group" style="margin-bottom: 20px;">
             <label for="submissionEmail">Designated Recipient Email:</label>
             <input type="email" id="submissionEmail" value="gelmolatojunior@gmail.com" required>
@@ -243,7 +251,7 @@
             <strong>Rating Scale:</strong> 5 – Outstanding | 4 – Very Satisfactory | 3 – Satisfactory | 2 – Needs Improvement | 1 – Poor
         </div>
 
-        <!-- Dynamic Form Target Container Block -->
+        <!-- Unified Question Blocks Container -->
         <div id="dynamicSections"></div>
 
         <!-- Section VI: Comments -->
@@ -265,12 +273,11 @@
             </div>
         </div>
 
-        <button type="submit">Submit and Generate Email Report</button>
+        <button type="submit" id="submitBtn">Submit and Automatically Send Report</button>
     </form>
 </div>
 
 <script>
-    // System Form Parameters Object Array Matrix Schema
     const formSchema = [
         {
             title: "I. Work Performance",
@@ -327,7 +334,6 @@
         }
     ];
 
-    // Standard SPMS Evaluation Scale Conversion Matrix Function
     function getDescriptiveRating(score) {
         if (score === 0) return "Incomplete";
         if (score >= 4.50) return "Outstanding";
@@ -337,18 +343,17 @@
         return "Poor";
     }
 
-    // Set Default Calendar dates to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('evalDate').value = today;
     document.getElementById('submissionDate').value = today;
 
     const targetContainer = document.getElementById('dynamicSections');
 
-    // Build Responsive DOM layout elements loop
+    // Build independent responsive layout structures
     formSchema.forEach(section => {
         let sectionHTML = `<div class="section-title">${section.title}</div>`;
         
-        // Desktop matrix elements layout
+        // Desktop Presentation View
         sectionHTML += `<table class="matrix-table">
             <thead>
                 <tr>
@@ -367,22 +372,22 @@
                 <td>${q.id}. ${q.text}</td>`;
                 for(let i=1; i<=5; i++) {
                     sectionHTML += `<td class="radio-cell">
-                        <input type="radio" name="q_${q.id}" value="${i}" data-text="${q.text}" required>
+                        <input type="radio" name="q_${q.id}" value="${i}" id="desktop_q_${q.id}_${i}" required>
                     </td>`;
                 }
             sectionHTML += `</tr>`;
         });
         sectionHTML += `</tbody></table>`;
 
-        // Mobile layout cards components
+        // Mobile Presentation View (using clean naming schema to isolate inputs)
         section.questions.forEach(q => {
             sectionHTML += `<div class="mobile-question-card">
                 <div class="mobile-question-text">${q.id}. ${q.text}</div>
                 <div class="mobile-radio-options">`;
                 for(let i=1; i<=5; i++) {
-                    sectionHTML += `<label class="mobile-option">
+                    sectionHTML += `<label class="mobile-option" for="mobile_q_${q.id}_${i}">
                         <span>${i}</span>
-                        <input type="radio" name="m_q_${q.id}" value="${i}" data-sync="q_${q.id}">
+                        <input type="radio" name="mq_${q.id}" value="${i}" id="mobile_q_${q.id}_${i}">
                     </label>`;
                 }
             sectionHTML += `</div></div>`;
@@ -391,26 +396,30 @@
         targetContainer.innerHTML += sectionHTML;
     });
 
-    // Cross-Synchronization Interactivity Layer Engine between view screens
+    // Seamless programmatic viewport synchronization engine
     document.addEventListener('change', function(e) {
         if(e.target.name.startsWith('q_')) {
-            const targetMobileName = 'm_q_' + e.target.name.split('_')[1];
-            const mobileRadio = document.querySelector(`input[name="${targetMobileName}"][value="${e.target.value}"]`);
-            if(mobileRadio) mobileRadio.checked = true;
+            const idNum = e.target.name.split('_')[1];
+            const companionInput = document.getElementById(`mobile_q_${idNum}_${e.target.value}`);
+            if(companionInput) companionInput.checked = true;
         }
-        if(e.target.name.startsWith('m_q_')) {
-            const targetDesktopName = 'q_' + e.target.name.split('_')[2];
-            const desktopRadio = document.querySelector(`input[name="${targetDesktopName}"][value="${e.target.value}"]`);
-            if(desktopRadio) {
-                desktopRadio.checked = true;
-                desktopRadio.setCustomValidity(""); 
+        if(e.target.name.startsWith('mq_')) {
+            const idNum = e.target.name.split('_')[1];
+            const companionInput = document.getElementById(`desktop_q_${idNum}_${e.target.value}`);
+            if(companionInput) {
+                companionInput.checked = true;
+                companionInput.setCustomValidity(""); 
             }
         }
     });
 
-    // Data parsing structure compiler on Form submission execution
+    // Compiled Form Extraction & Background Network Delivery Execution
     document.getElementById('evaluationForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Sending Report Automatically...";
 
         const sendTo = document.getElementById('submissionEmail').value;
         const targetEmp = document.getElementById('empName').value;
@@ -424,7 +433,6 @@
         let totalScoreSum = 0;
         let countedQuestions = 0;
 
-        // Perform calculation dynamically at the moment of submission
         formSchema.forEach(section => {
             section.questions.forEach(q => {
                 const checkedRadio = document.querySelector(`input[name="q_${q.id}"]:checked`);
@@ -439,18 +447,15 @@
         const finalPercentageScore = finalAverageScore > 0 ? ((finalAverageScore / 5) * 100) : 0;
         const finalDescriptiveRating = getDescriptiveRating(finalAverageScore);
 
-        // Build Structured plain-text email string output with ratings written directly in the header
         let trackingBody = `CDRRMO PEER PERFORMANCE EVALUATION REPORT\n`;
         trackingBody += `==================================================\n`;
         trackingBody += `OVERALL SCORE RATING      : ${finalAverageScore.toFixed(2)} / 5.00 (${Math.round(finalPercentageScore)}%)\n`;
         trackingBody += `OVERALL ADJECTIVAL RATING : ${finalDescriptiveRating}\n`;
         trackingBody += `==================================================\n\n`;
-        
         trackingBody += `EMPLOYEE UNDER EVALUATION : ${targetEmp}\n`;
         trackingBody += `POSITION                  : ${targetPos}\n`;
         trackingBody += `OFFICE/UNIT               : ${targetOffice}\n`;
         trackingBody += `DATE ASSESSED             : ${targetDate}\n\n`;
-        
         trackingBody += `==================================================\n`;
         trackingBody += `CRITERIA RUNNING SCORES LOG:\n`;
         trackingBody += `==================================================\n\n`;
@@ -465,10 +470,9 @@
         });
 
         trackingBody += `==================================================\n`;
-        trackingBody += `VI. AREAS FOR IMPROVEMENT & EXTRA EVALUATOR COMMENTS:\n`;
+        trackingBody += `VI. AREAS FOR IMPROVEMENT & EXTRA COMMENTS:\n`;
         trackingBody += `==================================================\n`;
         trackingBody += `${commentsText}\n\n`;
-        
         trackingBody += `==================================================\n`;
         trackingBody += `SUBMISSION METADATA:\n`;
         trackingBody += `==================================================\n`;
@@ -477,8 +481,28 @@
 
         const subjectLine = `Peer Eval [Score: ${finalAverageScore.toFixed(2)} - ${finalDescriptiveRating}] - ${targetEmp}`;
 
-        // Launch user mail client with payload strings
-        window.location.href = `mailto:${sendTo}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(trackingBody)}`;
+        // Automated Background Email Transmission Payload parameters
+        const emailParams = {
+            to_email: sendTo,
+            subject: subjectLine,
+            message: trackingBody
+        };
+
+        // Replace "YOUR_SERVICE_ID" and "YOUR_TEMPLATE_ID" with your specific EmailJS credentials
+        emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", emailParams)
+            .then(function() {
+                alert("Evaluation report has been successfully sent out automatically!");
+                document.getElementById('evaluationForm').reset();
+                document.getElementById('evalDate').value = today;
+                document.getElementById('submissionDate').value = today;
+            }, function(error) {
+                alert("Automated sending failed. Falling back to default manual email client app approach...");
+                window.location.href = `mailto:${sendTo}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(trackingBody)}`;
+            })
+            .finally(function() {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Submit and Automatically Send Report";
+            });
     });
 </script>
 
